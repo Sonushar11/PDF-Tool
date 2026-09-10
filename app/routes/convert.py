@@ -4,6 +4,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from app import store
 from app.doc_session import require_current_doc
+from app.limits import MAX_SAFE_DPI, PAGE_COUNT_WARNING_THRESHOLD, clamp_dpi
 from app.pdf_core import enhance as pdf_enhance
 from app.pdf_core import ocr as pdf_ocr
 from app.pdf_core import pages as pdf_pages
@@ -16,16 +17,20 @@ convert_bp = Blueprint("convert", __name__, url_prefix="/convert")
 def convert_page():
     token, doc = require_current_doc()
     page_count = pdf_pages.get_page_count(doc.data)
-    return render_template("convert.html", filename=doc.filename, page_count=page_count)
+    return render_template(
+        "convert.html",
+        filename=doc.filename,
+        page_count=page_count,
+        max_dpi=MAX_SAFE_DPI,
+        page_warning=page_count > PAGE_COUNT_WARNING_THRESHOLD,
+    )
 
 
 @convert_bp.route("/dpi", methods=["POST"])
 def change_dpi():
     token, doc = require_current_doc()
     try:
-        dpi = int(request.form.get("dpi", 150))
-        if not (30 <= dpi <= 1200):
-            raise ValueError("DPI must be between 30 and 1200.")
+        dpi = clamp_dpi(int(request.form.get("dpi", 150)))
         updated = pdf_render.rasterize_pdf(doc.data, dpi)
     except Exception as exc:
         flash(f"Could not change DPI: {exc}", "error")
@@ -39,7 +44,7 @@ def change_dpi():
 def enhance():
     token, doc = require_current_doc()
     try:
-        dpi = int(request.form.get("dpi", 200))
+        dpi = clamp_dpi(int(request.form.get("dpi", 200)))
         updated = pdf_enhance.enhance_pdf(
             doc.data,
             dpi=dpi,

@@ -3,6 +3,13 @@
 {% block content %}
 <h1>{{ filename }} <span class="note">({{ page_count }} pages)</span></h1>
 <p class="note"><a href="{{ url_for('viewer.index') }}">&larr; back to editor</a></p>
+<p class="note">This app runs on a free hosting tier with limited RAM, so DPI is capped at
+  {{ max_dpi }} here to avoid the process running out of memory on larger scans.</p>
+{% if page_warning %}
+<p class="flash error">This document has {{ page_count }} pages - enhance/OCR on the whole
+  file may be slow or risk running out of memory on this free-tier host. Consider splitting
+  it into smaller batches first if an operation fails.</p>
+{% endif %}
 
 <div class="card">
   <h2>Change DPI</h2>
@@ -10,7 +17,7 @@
     Lower DPI shrinks file size; higher DPI is useful before OCR on a low-quality scan.</p>
   <form method="post" action="{{ url_for('convert.change_dpi') }}">
     <label for="dpi">Target DPI</label>
-    <input type="number" id="dpi" name="dpi" value="150" min="30" max="1200">
+    <input type="number" id="dpi" name="dpi" value="150" min="30" max="{{ max_dpi }}">
     <div class="toolbar"><button type="submit">Apply</button></div>
   </form>
 </div>
@@ -23,7 +30,7 @@
     reconstruction.</p>
   <form method="post" action="{{ url_for('convert.enhance') }}">
     <label for="edpi">Working DPI</label>
-    <input type="number" id="edpi" name="dpi" value="200" min="72" max="1200">
+    <input type="number" id="edpi" name="dpi" value="200" min="72" max="{{ max_dpi }}">
     <label><input type="checkbox" name="deskew" checked> Deskew (straighten tilted scans)</label>
     <label><input type="checkbox" name="denoise" checked> Denoise</label>
     <label><input type="checkbox" name="contrast" checked> Boost contrast (CLAHE)</label>

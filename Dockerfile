@@ -17,11 +17,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Hugging Face Spaces (Docker SDK) expects the container to listen on 7860.
+# Default port for local/Docker runs. Render (and most PaaS hosts) inject
+# their own $PORT at runtime, which the shell-form CMD below picks up.
 ENV PORT=7860
 EXPOSE 7860
 
-# Writable dirs for a non-root user (Spaces runs containers as a non-root uid).
+# Writable dirs for a non-root user (most container platforms, Render
+# included, run containers as a non-root uid).
 RUN useradd -m appuser && chown -R appuser /app
 USER appuser
 
@@ -29,4 +31,8 @@ USER appuser
 # session token (see app/store.py) rather than a shared cache like Redis, to
 # keep the stack simple for a low-traffic internal tool. Multiple workers
 # would each have their own store and could "lose" a document mid-session.
-CMD ["gunicorn", "--bind", "0.0.0.0:7860", "--workers", "1", "--threads", "4", "--timeout", "180", "run:app"]
+# Only 2 threads (not more): the free-tier host has 512MB RAM total, and each
+# concurrent OCR/enhance request can use a few hundred MB (see app/limits.py)
+# -- capping concurrency bounds how many of those can pile up at once.
+# Shell form (not exec-array form) so ${PORT} is expanded at container start.
+CMD sh -c 'gunicorn --bind 0.0.0.0:${PORT:-7860} --workers 1 --threads 2 --timeout 180 run:app'
