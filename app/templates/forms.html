@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Forms - PDF Tool{% endblock %}
+{% block content %}
+<h1>{{ filename }}</h1>
+<p class="note"><a href="{{ url_for('viewer.index') }}">&larr; back to editor</a></p>
+
+<div class="card">
+  <h2>Form fields</h2>
+  {% if not fields %}
+  <p class="note">No AcroForm fields were found in this PDF.</p>
+  {% else %}
+  <form method="post" action="{{ url_for('forms.fill') }}">
+    {% for f in fields %}
+    <label for="f_{{ loop.index }}">{{ f.name }} <span class="note">(page {{ f.page_index + 1 }}, {{ f.field_type }})</span></label>
+    <input type="text" id="f_{{ loop.index }}" name="field:{{ f.name }}" value="{{ f.value }}">
+    {% endfor %}
+    <div class="toolbar"><button type="submit">Save field values</button></div>
+  </form>
+
+  <h2>Flatten</h2>
+  <p class="note">Bakes current field values into a static image of each page so the
+    form can no longer be edited. This turns the page into an image, so text will no
+    longer be selectable/searchable afterwards.</p>
+  <form method="post" action="{{ url_for('forms.flatten') }}"
+        onsubmit="return confirm('Flatten the form to a static, non-editable PDF?');">
+    <label for="dpi">Flatten DPI</label>
+    <input type="number" id="dpi" name="dpi" value="200" min="72" max="1200">
+    <div class="toolbar"><button type="submit" class="danger">Flatten form</button></div>
+  </form>
+  {% endif %}
+</div>
+
+<div class="toolbar">
+  <a class="btn" href="{{ url_for('viewer.download') }}">Download current PDF</a>
+</div>
+{% endblock %}

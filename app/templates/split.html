@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Split - PDF Tool{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Split a PDF</h1>
+  <p class="note">Upload a PDF and list the page ranges (1-based) you want as separate
+    files, e.g. <code>1-3,4-10,11-12</code>. Single files download directly; multiple
+    ranges download as a zip.</p>
+  <form method="post" enctype="multipart/form-data">
+    <label for="file">PDF file</label>
+    <input type="file" id="file" name="file" accept="application/pdf" required>
+    <label for="ranges">Page ranges</label>
+    <input type="text" id="ranges" name="ranges" placeholder="1-3,4-10,11-12" required>
+    <div class="toolbar"><button type="submit">Split and download</button></div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}PDF Tool{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+</head>
+<body>
+  {% if session.get('logged_in') %}
+  <nav class="topnav">
+    <a class="brand" href="{{ url_for('viewer.index') }}">PDF Tool</a>
+    <a href="{{ url_for('viewer.index') }}">Editor</a>
+    <a href="{{ url_for('merge_split.merge_page') }}">Merge</a>
+    <a href="{{ url_for('merge_split.split_page') }}">Split</a>
+    <a href="{{ url_for('convert.convert_page') }}">DPI / Enhance / OCR</a>
+    <a href="{{ url_for('annotate.annotate_page') }}">Annotate / Sign</a>
+    <a href="{{ url_for('forms.forms_page') }}">Forms</a>
+    <a href="{{ url_for('redact.redact_page') }}">Redact</a>
+    <a href="{{ url_for('security.security_page') }}">Encrypt</a>
+    <a href="{{ url_for('textedit.textedit_page') }}">Find &amp; Replace</a>
+    <a class="logout" href="{{ url_for('auth.logout') }}">Log out</a>
+  </nav>
+  {% endif %}
+  <main>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes">
+        {% for category, message in messages %}
+          <li class="flash {{ category }}">{{ message }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

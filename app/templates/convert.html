@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Convert - PDF Tool{% endblock %}
+{% block content %}
+<h1>{{ filename }} <span class="note">({{ page_count }} pages)</span></h1>
+<p class="note"><a href="{{ url_for('viewer.index') }}">&larr; back to editor</a></p>
+
+<div class="card">
+  <h2>Change DPI</h2>
+  <p class="note">Re-renders every page as a flattened image at the chosen resolution.
+    Lower DPI shrinks file size; higher DPI is useful before OCR on a low-quality scan.</p>
+  <form method="post" action="{{ url_for('convert.change_dpi') }}">
+    <label for="dpi">Target DPI</label>
+    <input type="number" id="dpi" name="dpi" value="150" min="30" max="1200">
+    <div class="toolbar"><button type="submit">Apply</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Enhance scanned pages</h2>
+  <p class="note">Sharpens contrast and reduces noise on the <em>existing</em> pixels.
+    It does not invent or guess any missing detail - if a figure is genuinely illegible
+    in the source scan, it will still be illegible here. Use for legibility, not
+    reconstruction.</p>
+  <form method="post" action="{{ url_for('convert.enhance') }}">
+    <label for="edpi">Working DPI</label>
+    <input type="number" id="edpi" name="dpi" value="200" min="72" max="1200">
+    <label><input type="checkbox" name="deskew" checked> Deskew (straighten tilted scans)</label>
+    <label><input type="checkbox" name="denoise" checked> Denoise</label>
+    <label><input type="checkbox" name="contrast" checked> Boost contrast (CLAHE)</label>
+    <label><input type="checkbox" name="sharpen" checked> Sharpen</label>
+    <label><input type="checkbox" name="grayscale"> Convert to grayscale</label>
+    <div class="toolbar"><button type="submit">Apply</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>OCR (make searchable)</h2>
+  <p class="note">Adds an invisible, searchable text layer over the scanned image
+    using Tesseract. The visible page is unchanged.</p>
+  <form method="post" action="{{ url_for('convert.ocr') }}">
+    <label for="lang">Language</label>
+    <select id="lang" name="language">
+      <option value="eng" selected>English</option>
+    </select>
+    <label><input type="checkbox" name="deskew" checked> Deskew during OCR</label>
+    <label><input type="checkbox" name="force_ocr"> Force OCR (redo even if a text layer already exists)</label>
+    <div class="toolbar"><button type="submit">Run OCR</button></div>
+  </form>
+</div>
+
+<div class="toolbar">
+  <a class="btn" href="{{ url_for('viewer.download') }}">Download current PDF</a>
+</div>
+{% endblock %}

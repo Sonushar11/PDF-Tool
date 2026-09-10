@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Annotate - PDF Tool{% endblock %}
+{% block content %}
+<h1>{{ filename }}</h1>
+<p class="note"><a href="{{ url_for('viewer.index') }}">&larr; back to editor</a></p>
+
+<div class="card">
+  <label for="page-select">Page</label>
+  <select id="page-select" onchange="location.href='{{ url_for('annotate.annotate_page') }}?page='+this.value">
+    {% for i in range(page_count) %}
+    <option value="{{ i }}" {{ 'selected' if i == page_index }}>Page {{ i + 1 }}</option>
+    {% endfor %}
+  </select>
+  <p class="note">Click anywhere on the page preview to set where the next
+    annotation/stamp/signature will be placed (top-left corner).</p>
+  <div id="preview-wrap" style="position:relative; display:inline-block;">
+    <img id="preview-img" src="{{ url_for('viewer.preview', index=page_index) }}"
+         style="max-width:100%; display:block; cursor:crosshair;">
+    <div id="marker" style="position:absolute; width:10px; height:10px; margin-left:-5px;
+         margin-top:-5px; background:#2563eb; border-radius:50%; display:none;"></div>
+  </div>
+  <p class="note">Chosen position: <span id="pos-label">click the page above</span></p>
+</div>
+
+<div class="card">
+  <h2>Add text note</h2>
+  <form method="post" action="{{ url_for('annotate.add_text') }}" class="place-form">
+    <input type="hidden" name="page" value="{{ page_index }}">
+    <input type="hidden" name="x_pct" class="x-pct">
+    <input type="hidden" name="y_pct" class="y-pct">
+    <label for="text">Text</label>
+    <input type="text" id="text" name="text" required>
+    <label for="width_pct">Box width (% of page)</label>
+    <input type="number" id="width_pct" name="width_pct" value="30" min="5" max="90">
+    <label for="font_size">Font size</label>
+    <input type="number" id="font_size" name="font_size" value="12" min="6" max="48">
+    <div class="toolbar"><button type="submit">Add text</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Add highlight</h2>
+  <form method="post" action="{{ url_for('annotate.add_highlight') }}" class="place-form">
+    <input type="hidden" name="page" value="{{ page_index }}">
+    <input type="hidden" name="x_pct" class="x-pct">
+    <input type="hidden" name="y_pct" class="y-pct">
+    <label for="hwidth_pct">Width (% of page)</label>
+    <input type="number" id="hwidth_pct" name="width_pct" value="20" min="1" max="100">
+    <label for="hheight_pct">Height (% of page)</label>
+    <input type="number" id="hheight_pct" name="height_pct" value="4" min="1" max="100">
+    <div class="toolbar"><button type="submit">Add highlight</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Add image stamp</h2>
+  <form method="post" action="{{ url_for('annotate.add_stamp') }}" enctype="multipart/form-data" class="place-form">
+    <input type="hidden" name="page" value="{{ page_index }}">
+    <input type="hidden" name="x_pct" class="x-pct">
+    <input type="hidden" name="y_pct" class="y-pct">
+    <label for="image">Image</label>
+    <input type="file" id="image" name="image" accept="image/*" required>
+    <label for="swidth_pct">Width (% of page)</label>
+    <input type="number" id="swidth_pct" name="width_pct" value="25" min="1" max="100">
+    <div class="toolbar"><button type="submit">Add stamp</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Draw &amp; place a signature</h2>
+  <canvas id="sig-canvas" class="sig-pad" width="400" height="150"></canvas>
+  <div class="toolbar">
+    <button type="button" class="secondary" onclick="clearSig()">Clear signature</button>
+  </div>
+  <form method="post" action="{{ url_for('annotate.add_signature') }}" class="place-form" id="sig-form">
+    <input type="hidden" name="page" value="{{ page_index }}">
+    <input type="hidden" name="x_pct" class="x-pct">
+    <input type="hidden" name="y_pct" class="y-pct">
+    <input type="hidden" name="signature_data" id="signature_data">
+    <label for="gwidth_pct">Width (% of page)</label>
+    <input type="number" id="gwidth_pct" name="width_pct" value="20" min="1" max="100">
+    <div class="toolbar"><button type="submit">Place signature</button></div>
+  </form>
+</div>
+
+<div class="toolbar">
+  <a class="btn" href="{{ url_for('viewer.download') }}">Download current PDF</a>
+</div>
+
+<script src="{{ url_for('static', filename='js/annotate.js') }}"></script>
+{% endblock %}

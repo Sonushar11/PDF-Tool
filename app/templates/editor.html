@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Editor - PDF Tool{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>{{ filename }}</h1>
+  <p class="note">{{ page_count }} page(s). Click a page to select it, drag thumbnails to
+    reorder. Changes apply to the working copy in memory; use Undo to step back
+    or Download to save the result.</p>
+  <div class="toolbar">
+    <button type="button" onclick="submitPages('/pages/rotate', {angle: -90})">Rotate selected ⟲</button>
+    <button type="button" onclick="submitPages('/pages/rotate', {angle: 90})">Rotate selected ⟳</button>
+    <button type="button" class="danger" onclick="submitPages('/pages/delete', {})">Delete selected</button>
+    <button type="button" onclick="submitPages('/pages/extract', {})">Extract selected as new PDF</button>
+    <button type="button" onclick="saveOrder()">Save new order</button>
+  </div>
+  <div class="toolbar">
+    <a class="btn" href="{{ url_for('viewer.download') }}">Download current PDF</a>
+    <form method="post" action="{{ url_for('viewer.undo') }}" style="display:inline">
+      <button type="submit" class="secondary" {{ 'disabled' if not can_undo }}>Undo last change</button>
+    </form>
+    <form method="post" action="{{ url_for('viewer.reset') }}" style="display:inline"
+          onsubmit="return confirm('Discard this document and start over?');">
+      <button type="submit" class="danger">Start over</button>
+    </form>
+  </div>
+
+  <div class="page-grid" id="page-grid">
+    {% for i in range(page_count) %}
+    <div class="page-thumb" data-index="{{ i }}" draggable="true">
+      <img src="{{ url_for('viewer.thumbnail', index=i) }}" alt="Page {{ i + 1 }}" loading="lazy">
+      <div class="idx">
+        <label><input type="checkbox" class="page-check" value="{{ i + 1 }}"> Page {{ i + 1 }}</label>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/editor.js') }}"></script>
+{% endblock %}

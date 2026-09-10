@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Merge - PDF Tool{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Merge PDFs</h1>
+  <p class="note">Upload two or more PDFs. They'll be combined in the order selected.</p>
+  <form method="post" enctype="multipart/form-data">
+    <label for="files">PDF files</label>
+    <input type="file" id="files" name="files" accept="application/pdf" multiple required>
+    <div class="toolbar"><button type="submit">Merge and download</button></div>
+  </form>
+</div>
+{% endblock %}

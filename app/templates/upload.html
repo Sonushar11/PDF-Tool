@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Upload - PDF Tool{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Load a PDF</h1>
+  <p class="note">Nothing you upload is saved to disk. It's held in memory only for
+    this session and is dropped automatically after an hour of inactivity.</p>
+  <form method="post" action="{{ url_for('viewer.upload') }}" enctype="multipart/form-data">
+    <label for="file">PDF file</label>
+    <input type="file" id="file" name="file" accept="application/pdf" required>
+    <div class="toolbar"><button type="submit">Load</button></div>
+  </form>
+</div>
+{% endblock %}

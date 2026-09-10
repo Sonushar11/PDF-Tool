@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Find & Replace - PDF Tool{% endblock %}
+{% block content %}
+<h1>{{ filename }}</h1>
+<p class="note"><a href="{{ url_for('viewer.index') }}">&larr; back to editor</a></p>
+
+<div class="card">
+  <h2>Find &amp; replace text</h2>
+  <p class="note"><strong>Limitation:</strong> this is not full WYSIWYG text editing.
+    Each match is removed and replacement text is drawn in its place using an
+    approximated font/size - it may not look pixel-identical to the original,
+    especially for complex layouts. Always review the result before sending it on.</p>
+  <form method="post" action="{{ url_for('textedit.replace') }}">
+    <label for="find_text">Find (exact text, case-sensitive)</label>
+    <input type="text" id="find_text" name="find_text" required>
+    <label for="replace_text">Replace with</label>
+    <input type="text" id="replace_text" name="replace_text">
+    <div class="toolbar"><button type="submit">Replace all occurrences</button></div>
+  </form>
+</div>
+
+<div class="toolbar">
+  <a class="btn" href="{{ url_for('viewer.download') }}">Download current PDF</a>
+</div>
+{% endblock %}

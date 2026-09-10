@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Encrypt / Decrypt - PDF Tool{% endblock %}
+{% block content %}
+<h1>Encrypt / Decrypt</h1>
+
+<div class="card">
+  <h2>Password-protect the loaded PDF</h2>
+  {% if filename %}
+  <p class="note">Working on: {{ filename }}. Encrypting downloads a protected copy -
+    it doesn't change the working copy in the editor (so you can keep editing the
+    unencrypted version afterwards).</p>
+  <form method="post" action="{{ url_for('security.encrypt') }}">
+    <label for="user_password">Password required to open the file</label>
+    <input type="text" id="user_password" name="user_password" required>
+    <label for="owner_password">Owner password (optional, controls permissions; defaults to the same password)</label>
+    <input type="text" id="owner_password" name="owner_password">
+    <label><input type="checkbox" name="allow_printing" checked> Allow printing</label>
+    <label><input type="checkbox" name="allow_copy" checked> Allow copying text/images</label>
+    <label><input type="checkbox" name="allow_modify"> Allow editing/annotating</label>
+    <div class="toolbar"><button type="submit">Encrypt and download</button></div>
+  </form>
+  {% else %}
+  <p class="note">Load a PDF in the <a href="{{ url_for('viewer.index') }}">Editor</a> tab first.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Decrypt a password-protected PDF</h2>
+  <form method="post" action="{{ url_for('security.decrypt') }}" enctype="multipart/form-data">
+    <label for="file">PDF file</label>
+    <input type="file" id="file" name="file" accept="application/pdf" required>
+    <label for="password">Password</label>
+    <input type="text" id="password" name="password" required>
+    <label><input type="checkbox" name="load_in_editor" checked> Load the decrypted file into the editor afterwards</label>
+    <div class="toolbar"><button type="submit">Decrypt</button></div>
+  </form>
+</div>
+{% endblock %}
