@@ -15,12 +15,16 @@ from dataclasses import dataclass, field
 TTL_SECONDS = 60 * 60  # drop documents untouched for an hour
 
 
+HISTORY_LIMIT = 20
+
+
 @dataclass
 class StoredDoc:
     filename: str
     data: bytes
     updated_at: float = field(default_factory=time.time)
-    history: list[tuple[str, bytes]] = field(default_factory=list)  # (label, data) for undo
+    history: list[tuple[str, bytes]] = field(default_factory=list)  # (label, data) to step back to
+    future: list[tuple[str, bytes]] = field(default_factory=list)   # states undone, for redo
 
 
 _docs: dict[str, StoredDoc] = {}
@@ -53,7 +57,10 @@ def update_doc(token: str, data: bytes, label: str = "edit") -> None:
     if doc is None:
         raise KeyError("Unknown document token.")
     doc.history.append((label, doc.data))
-    doc.history = doc.history[-20:]  # cap undo history
+    doc.history = doc.history[-HISTORY_LIMIT:]
+    # Editing after an undo forks the timeline, so anything that was undone is
+    # no longer reachable - same rule as every other editor.
+    doc.future.clear()
     doc.data = data
     doc.updated_at = time.time()
 
@@ -62,8 +69,22 @@ def undo(token: str) -> bool:
     doc = _docs.get(token)
     if not doc or not doc.history:
         return False
-    _, previous = doc.history.pop()
+    label, previous = doc.history.pop()
+    doc.future.append((label, doc.data))
+    doc.future = doc.future[-HISTORY_LIMIT:]
     doc.data = previous
+    doc.updated_at = time.time()
+    return True
+
+
+def redo(token: str) -> bool:
+    doc = _docs.get(token)
+    if not doc or not doc.future:
+        return False
+    label, restored = doc.future.pop()
+    doc.history.append((label, doc.data))
+    doc.history = doc.history[-HISTORY_LIMIT:]
+    doc.data = restored
     doc.updated_at = time.time()
     return True
 

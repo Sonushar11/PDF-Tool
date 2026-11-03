@@ -48,6 +48,8 @@ def add_highlight(
     y_pct: float,
     width_pct: float,
     height_pct: float,
+    *,
+    color: tuple[float, float, float] | None = None,
 ) -> bytes:
     with open_doc(file_bytes) as doc:
         page = doc[page_index]
@@ -58,6 +60,9 @@ def add_highlight(
             page.rect.height * (y_pct + height_pct) / 100,
         )
         annot = page.add_highlight_annot(rect)
+        if color is not None:
+            # Highlights carry their colour on the stroke channel, not fill.
+            annot.set_colors(stroke=color)
         annot.update()
         return save_doc_bytes(doc)
 
@@ -80,4 +85,67 @@ def add_image_stamp(
         y0 = page.rect.height * y_pct / 100
         rect = fitz.Rect(x0, y0, x0 + width_pts, y0 + height_pts)
         page.insert_image(rect, stream=image_bytes)
+        return save_doc_bytes(doc)
+
+
+def list_words(file_bytes: bytes, page_index: int) -> list[dict]:
+    """Word boxes on a page as percentages, for the snap-to-text highlighter.
+
+    The browser uses these to work out which words a highlighter sweep passed
+    over, so the resulting highlight follows the text instead of being a loose
+    rectangle drawn by hand.
+    """
+    with open_doc(file_bytes) as doc:
+        page = doc[page_index]
+        page_w, page_h = page.rect.width, page.rect.height
+        if not page_w or not page_h:
+            return []
+
+        words = []
+        for x0, y0, x1, y1, word, *_rest in page.get_text("words"):
+            if not word.strip():
+                continue
+            words.append({
+                "text": word,
+                "x_pct": round(x0 / page_w * 100, 4),
+                "y_pct": round(y0 / page_h * 100, 4),
+                "w_pct": round((x1 - x0) / page_w * 100, 4),
+                "h_pct": round((y1 - y0) / page_h * 100, 4),
+            })
+        return words
+
+
+def add_highlight_boxes(
+    file_bytes: bytes,
+    page_index: int,
+    boxes: list[dict],
+    *,
+    color: tuple[float, float, float] | None = None,
+) -> bytes:
+    """Highlight several boxes as one annotation.
+
+    A sweep across three words is one highlight with three quads, not three
+    separate annotations - that is how a PDF reader expects multi-word
+    highlights to be stored, and it keeps undo to a single step.
+    """
+    with open_doc(file_bytes) as doc:
+        page = doc[page_index]
+        quads = []
+        for box in boxes:
+            x0 = page.rect.width * float(box["x_pct"]) / 100
+            y0 = page.rect.height * float(box["y_pct"]) / 100
+            rect = fitz.Rect(
+                x0, y0,
+                x0 + page.rect.width * float(box["w_pct"]) / 100,
+                y0 + page.rect.height * float(box["h_pct"]) / 100,
+            )
+            if not rect.is_empty:
+                quads.append(rect.quad)
+        if not quads:
+            raise ValueError("Nothing to highlight.")
+
+        annot = page.add_highlight_annot(quads=quads)
+        if color is not None:
+            annot.set_colors(stroke=color)
+        annot.update()
         return save_doc_bytes(doc)

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Markdown - PDF Tool{% endblock %}
+{% block content %}
+<div class="page-head reveal">
+  <a class="backlink" href="{{ url_for('viewer.index') }}">&larr; back to editor</a>
+  <h1>Extract Markdown</h1>
+  <p class="note">Converts the document's text layer to Markdown. Headings are
+    inferred from font sizes and bold/italic from the typeface, because a PDF
+    carries no structure of its own - review the result rather than trusting it
+    blindly on an unusual layout.</p>
+</div>
+
+{% if not stats.has_text_layer %}
+<p class="flash warning reveal">This PDF has no text layer - it's almost certainly a
+  scan. Run <a href="{{ url_for('convert.convert_page') }}">OCR</a> first, then come back.</p>
+{% endif %}
+{% if error %}
+<p class="flash error reveal">{{ error }}</p>
+{% endif %}
+
+<div class="card reveal">
+  <h2>Options</h2>
+  <form method="get" action="{{ url_for('extract.extract_page') }}">
+    <label for="pages">Pages <span class="note">(blank = all {{ stats.page_count }})</span></label>
+    <input type="text" id="pages" name="pages" value="{{ pages_raw }}" placeholder="1-3,7">
+    <label><input type="checkbox" name="tables" value="1" {{ 'checked' if include_tables }}> Detect tables and emit Markdown tables</label>
+    <label><input type="checkbox" name="breaks" value="1" {{ 'checked' if page_breaks }}> Mark page boundaries with an HTML comment</label>
+    <div class="toolbar">
+      <button type="submit">Update</button>
+      <a class="btn secondary" href="{{ url_for('extract.download_markdown', pages=pages_raw, tables='1' if include_tables else '0', breaks='1' if page_breaks else '0') }}">Download .md</a>
+      <button type="button" class="secondary" id="copy-md">Copy to clipboard</button>
+    </div>
+  </form>
+</div>
+
+<div class="card reveal">
+  <div class="md-head">
+    <h2>Result</h2>
+    <span class="note">{{ markdown|length }} characters</span>
+  </div>
+  {% if markdown %}
+  <pre class="md-out" id="md-out">{{ markdown }}</pre>
+  {% else %}
+  <p class="note">Nothing was extracted for this selection.</p>
+  {% endif %}
+</div>
+
+<div class="card reveal">
+  <h2>API</h2>
+  <p class="note">These endpoints return JSON for the signed-in session, so an MCP
+    server or script can call them against a loaded document:</p>
+  <dl class="kb-list">
+    <dt><code>GET /extract/markdown.json</code></dt><dd>Markdown plus page metadata</dd>
+    <dt><code>GET /extract/text.json</code></dt><dd>Raw text layer, no Markdown inference</dd>
+    <dt><code>GET /extract/download.md</code></dt><dd>Markdown as a file download</dd>
+  </dl>
+  <p class="note">All three accept <code>?pages=1-3,7</code>, <code>?tables=0</code>
+    and <code>?breaks=0</code>.</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.getElementById("copy-md").addEventListener("click", async function () {
+    const out = document.getElementById("md-out");
+    if (!out) return;
+    try {
+      await navigator.clipboard.writeText(out.textContent);
+      this.textContent = "Copied";
+    } catch (err) {
+      this.textContent = "Copy failed";
+    }
+    setTimeout(() => { this.textContent = "Copy to clipboard"; }, 1500);
+  });
+</script>
+{% endblock %}

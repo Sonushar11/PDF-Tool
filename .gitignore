@@ -6,3 +6,5 @@ venv/
 *.pdf
 .pytest_cache/
 .vs/
+
+claudedesignskills/

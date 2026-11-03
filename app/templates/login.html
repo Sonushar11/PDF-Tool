@@ -2,7 +2,8 @@
 {% block title %}Log in - PDF Tool{% endblock %}
 {% block content %}
 <div class="login-wrap">
-  <form class="card login-card" method="post">
+  <form class="card login-card reveal" method="post">
+    <span class="brand-mark">PDF</span>
     <h1>PDF Tool</h1>
     <p class="note">Enter the shared password to continue.</p>
     {% if error %}<p class="flash error">{{ error }}</p>{% endif %}

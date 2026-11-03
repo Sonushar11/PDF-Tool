@@ -1,12 +1,35 @@
 {% extends "base.html" %}
 {% block title %}Merge - PDF Tool{% endblock %}
 {% block content %}
-<div class="card">
+<div class="page-head reveal">
   <h1>Merge PDFs</h1>
-  <p class="note">Upload two or more PDFs. They'll be combined in the order selected.</p>
+  <p class="note">Files are combined in the order they're selected. The merged copy
+    downloads straight away - it doesn't replace what's open in the editor.</p>
+</div>
+
+<div class="card reveal">
+  {# No work overlay: a successful merge streams a file back instead of
+     navigating, so an overlay would have nothing to dismiss it. #}
   <form method="post" enctype="multipart/form-data">
-    <label for="files">PDF files</label>
-    <input type="file" id="files" name="files" accept="application/pdf" multiple required>
+    {% if loaded %}
+    <label class="loaded-banner loaded-choice">
+      <input type="checkbox" name="include_loaded" checked>
+      <span class="loaded-dot" aria-hidden="true"></span>
+      <div>
+        <strong>{{ loaded.filename }}</strong>
+        <span class="note">Start with the document already loaded</span>
+      </div>
+    </label>
+    {% endif %}
+
+    <label class="dropzone" for="files">
+      <span class="dz-icon">&#8679;</span>
+      <span class="dz-main">Drop PDFs here</span>
+      <span class="dz-sub">{% if loaded %}or click to browse - these are added after the loaded file{% else %}or click to browse - select two or more{% endif %}</span>
+      <span class="dz-file"></span>
+      <input type="file" id="files" name="files" accept="application/pdf" multiple
+             {{ '' if loaded else 'required' }}>
+    </label>
     <div class="toolbar"><button type="submit">Merge and download</button></div>
   </form>
 </div>

@@ -18,6 +18,7 @@ def create_app():
     from app.routes.redact import redact_bp
     from app.routes.security import security_bp
     from app.routes.textedit import textedit_bp
+    from app.routes.extract import extract_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(viewer_bp)
@@ -28,7 +29,24 @@ def create_app():
     app.register_blueprint(redact_bp)
     app.register_blueprint(security_bp)
     app.register_blueprint(textedit_bp)
+    app.register_blueprint(extract_bp)
 
     app.before_request(require_login)
+
+    @app.context_processor
+    def inject_doc_state():
+        """Undo/redo availability for the global keyboard shortcuts.
+
+        Every page needs this, not just the editor, because Ctrl+Z works
+        wherever a document is loaded.
+        """
+        from app.doc_session import get_current_doc
+
+        _token, doc = get_current_doc()
+        return {
+            "has_doc": doc is not None,
+            "can_undo": bool(doc and doc.history),
+            "can_redo": bool(doc and doc.future),
+        }
 
     return app

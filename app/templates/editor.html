@@ -1,27 +1,94 @@
 {% extends "base.html" %}
-{% block title %}Editor - PDF Tool{% endblock %}
+{% block title %}{{ filename }} - PDF Tool{% endblock %}
 {% block content %}
-<div class="card">
-  <h1>{{ filename }}</h1>
-  <p class="note">{{ page_count }} page(s). Click a page to select it, drag thumbnails to
-    reorder. Changes apply to the working copy in memory; use Undo to step back
-    or Download to save the result.</p>
-  <div class="toolbar">
-    <button type="button" onclick="submitPages('/pages/rotate', {angle: -90})">Rotate selected ⟲</button>
-    <button type="button" onclick="submitPages('/pages/rotate', {angle: 90})">Rotate selected ⟳</button>
-    <button type="button" class="danger" onclick="submitPages('/pages/delete', {})">Delete selected</button>
-    <button type="button" onclick="submitPages('/pages/extract', {})">Extract selected as new PDF</button>
-    <button type="button" onclick="saveOrder()">Save new order</button>
+
+<div class="doc-header reveal">
+  <div class="doc-id">
+    <span class="doc-icon" aria-hidden="true">PDF</span>
+    <div class="doc-meta">
+      <h1>{{ filename }}</h1>
+      <p class="doc-stats">
+        <span>{{ page_count }} page{{ '' if page_count == 1 else 's' }}</span>
+        <span>{{ size_label }}</span>
+        <span>{{ edit_count }} edit{{ '' if edit_count == 1 else 's' }} this session</span>
+      </p>
+    </div>
   </div>
+  <div class="doc-actions">
+    <form method="post" action="{{ url_for('viewer.undo') }}">
+      <button type="submit" class="secondary" {{ 'disabled' if not can_undo }}
+              title="Ctrl+Z">&#8630; Undo</button>
+    </form>
+    <form method="post" action="{{ url_for('viewer.redo') }}">
+      <button type="submit" class="secondary" {{ 'disabled' if not can_redo }}
+              title="Ctrl+Y">&#8631; Redo</button>
+    </form>
+    <form method="post" action="{{ url_for('viewer.reset') }}"
+          onsubmit="return confirm('Discard this document and start over? Unsaved edits are lost.');">
+      <button type="submit" class="danger">Close document</button>
+    </form>
+  </div>
+</div>
+
+<h2 class="section-title reveal">What do you want to do?</h2>
+<div class="tool-tiles reveal">
+  <a class="tile" href="{{ url_for('annotate.annotate_page') }}">
+    <span class="tile-ico" aria-hidden="true">&#9998;</span>
+    <strong>Annotate &amp; Edit</strong>
+    <span class="note">Highlight, draw, add text, edit existing text, sign, white out</span>
+  </a>
+  <a class="tile" href="{{ url_for('convert.convert_page') }}">
+    <span class="tile-ico" aria-hidden="true">&#9881;</span>
+    <strong>DPI / Enhance / OCR</strong>
+    <span class="note">Clean up scans and make them searchable</span>
+  </a>
+  <a class="tile" href="{{ url_for('redact.redact_page') }}">
+    <span class="tile-ico" aria-hidden="true">&#9632;</span>
+    <strong>Redact</strong>
+    <span class="note">Permanently remove sensitive content</span>
+  </a>
+  <a class="tile" href="{{ url_for('textedit.textedit_page') }}">
+    <span class="tile-ico" aria-hidden="true">&#8644;</span>
+    <strong>Find &amp; Replace</strong>
+    <span class="note">Swap text across the whole document</span>
+  </a>
+  <a class="tile" href="{{ url_for('forms.forms_page') }}">
+    <span class="tile-ico" aria-hidden="true">&#9636;</span>
+    <strong>Forms</strong>
+    <span class="note">Fill in fields, then flatten them</span>
+  </a>
+  <a class="tile" href="{{ url_for('merge_split.split_page') }}">
+    <span class="tile-ico" aria-hidden="true">&#9988;</span>
+    <strong>Split</strong>
+    <span class="note">Pull page ranges out into separate files</span>
+  </a>
+  <a class="tile" href="{{ url_for('merge_split.merge_page') }}">
+    <span class="tile-ico" aria-hidden="true">&#43;</span>
+    <strong>Merge</strong>
+    <span class="note">Combine this with other PDFs</span>
+  </a>
+  <a class="tile" href="{{ url_for('extract.extract_page') }}">
+    <span class="tile-ico" aria-hidden="true">&#9776;</span>
+    <strong>Extract Markdown</strong>
+    <span class="note">Pull the text out as Markdown, or via JSON API</span>
+  </a>
+  <a class="tile" href="{{ url_for('security.security_page') }}">
+    <span class="tile-ico" aria-hidden="true">&#128274;</span>
+    <strong>Encrypt</strong>
+    <span class="note">Password-protect a copy</span>
+  </a>
+</div>
+
+<h2 class="section-title reveal">Pages</h2>
+<div class="card reveal">
+  <p class="note">Tick pages to act on them. Drag thumbnails to reorder, then save
+    the new order.</p>
   <div class="toolbar">
-    <a class="btn" href="{{ url_for('viewer.download') }}">Download current PDF</a>
-    <form method="post" action="{{ url_for('viewer.undo') }}" style="display:inline">
-      <button type="submit" class="secondary" {{ 'disabled' if not can_undo }}>Undo last change</button>
-    </form>
-    <form method="post" action="{{ url_for('viewer.reset') }}" style="display:inline"
-          onsubmit="return confirm('Discard this document and start over?');">
-      <button type="submit" class="danger">Start over</button>
-    </form>
+    <button type="button" class="secondary" onclick="submitPages('/pages/rotate', {angle: -90})">&#10226; Rotate left</button>
+    <button type="button" class="secondary" onclick="submitPages('/pages/rotate', {angle: 90})">&#10227; Rotate right</button>
+    <button type="button" class="secondary" onclick="submitPages('/pages/extract', {})">Extract as new PDF</button>
+    <button type="button" onclick="saveOrder()">Save new order</button>
+    <button type="button" class="danger" onclick="submitPages('/pages/delete', {})">Delete selected</button>
   </div>
 
   <div class="page-grid" id="page-grid">
@@ -35,6 +102,8 @@
     {% endfor %}
   </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
 {% endblock %}

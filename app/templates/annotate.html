@@ -1,73 +1,233 @@
 {% extends "base.html" %}
-{% block title %}Annotate - PDF Tool{% endblock %}
+{% block title %}Annotate &amp; Edit - PDF Tool{% endblock %}
 {% block content %}
-<h1>{{ filename }}</h1>
-<p class="note"><a href="{{ url_for('viewer.index') }}">&larr; back to editor</a></p>
-
-<div class="card">
-  <label for="page-select">Page</label>
-  <select id="page-select" onchange="location.href='{{ url_for('annotate.annotate_page') }}?page='+this.value">
-    {% for i in range(page_count) %}
-    <option value="{{ i }}" {{ 'selected' if i == page_index }}>Page {{ i + 1 }}</option>
-    {% endfor %}
-  </select>
-  <p class="note">Click anywhere on the page preview to set where the next
-    annotation/stamp/signature will be placed (top-left corner).</p>
-  <div id="preview-wrap" style="position:relative; display:inline-block;">
-    <img id="preview-img" src="{{ url_for('viewer.preview', index=page_index) }}"
-         style="max-width:100%; display:block; cursor:crosshair;">
-    <div id="marker" style="position:absolute; width:10px; height:10px; margin-left:-5px;
-         margin-top:-5px; background:#2563eb; border-radius:50%; display:none;"></div>
-  </div>
-  <p class="note">Chosen position: <span id="pos-label">click the page above</span></p>
+<div class="page-head reveal">
+  <a class="backlink" href="{{ url_for('viewer.index') }}">&larr; back to editor</a>
+  <h1>{{ filename }}</h1>
+  <p class="note">Pick a tool, then work directly on the page below. Every change
+    applies to the working copy in memory - press <kbd class="kbd-mod">Ctrl</kbd>+<kbd>Z</kbd>
+    to step back, or <kbd>?</kbd> for all shortcuts.</p>
 </div>
 
-<div class="card">
-  <h2>Add text note</h2>
+<div class="card reveal">
+  <div class="tool-rail" id="tool-rail" role="toolbar" aria-label="Annotation tools">
+    <button type="button" class="tool-btn active" data-tool="select"    title="Select / place a point (V)"><span class="t-ico">&#10022;</span>Select</button>
+    <button type="button" class="tool-btn"        data-tool="text"      title="Add a text note (T)"><span class="t-ico">T</span>Text</button>
+    <button type="button" class="tool-btn"        data-tool="highlight" title="Highlighter - hold and slide across text (H)"><span class="t-ico">&#9646;</span>Highlight</button>
+    <button type="button" class="tool-btn"        data-tool="pen"       title="Freehand draw (P)"><span class="t-ico">&#9998;</span>Pen</button>
+    <button type="button" class="tool-btn"        data-tool="shape"     title="Rectangle, ellipse, line or arrow (S)"><span class="t-ico">&#9633;</span>Shape</button>
+    <button type="button" class="tool-btn"        data-tool="whiteout"  title="White out - permanently removes content (W)"><span class="t-ico">&#9251;</span>Whiteout</button>
+    <button type="button" class="tool-btn"        data-tool="edittext"  title="Click existing text to retype it (E)"><span class="t-ico">&#9998;T</span>Edit text</button>
+    <button type="button" class="tool-btn"        data-tool="stamp"     title="Place an image (I)"><span class="t-ico">&#9744;</span>Stamp</button>
+    <button type="button" class="tool-btn"        data-tool="signature" title="Draw and place a signature (G)"><span class="t-ico">&#9998;</span>Sign</button>
+  </div>
+
+  <div class="rail-meta">
+    <label for="page-select" class="inline-label">Page</label>
+    <select id="page-select" onchange="location.href='{{ url_for('annotate.annotate_page') }}?page='+this.value">
+      {% for i in range(page_count) %}
+      <option value="{{ i }}" {{ 'selected' if i == page_index }}>Page {{ i + 1 }} of {{ page_count }}</option>
+      {% endfor %}
+    </select>
+    <span class="tool-hint" id="tool-hint">Click the page to set a position.</span>
+    <div class="rail-history">
+      <button type="button" class="secondary" id="rail-undo" title="Undo (Ctrl+Z)"
+              {{ 'disabled' if not can_undo }}>&#8630; Undo</button>
+      <button type="button" class="secondary" id="rail-redo" title="Redo (Ctrl+Y)"
+              {{ 'disabled' if not can_redo }}>&#8631; Redo</button>
+    </div>
+  </div>
+
+  <div id="preview-wrap">
+    <img id="preview-img" src="{{ url_for('viewer.preview', index=page_index) }}"
+         alt="Page {{ page_index + 1 }}" draggable="false">
+    <canvas id="overlay"></canvas>
+    <div id="marker" aria-hidden="true"></div>
+    <div id="span-layer"></div>
+  </div>
+
+  <p class="note" id="pos-label">No position chosen yet.</p>
+</div>
+
+{# ------------------------------------------------------------------ #}
+{# Tool panels - only the active tool's panel is shown.                #}
+{# ------------------------------------------------------------------ #}
+
+<div class="card tool-panel reveal" data-panel="select">
+  <h2>Select</h2>
+  <p class="note">Click anywhere on the page to set a position. Text, stamps and
+    signatures are placed from that point (it becomes their top-left corner).</p>
+</div>
+
+<div class="card tool-panel" data-panel="text" hidden>
+  <h2>Text note</h2>
+  <p class="note">Click the page to choose where the note starts, then fill this in.</p>
   <form method="post" action="{{ url_for('annotate.add_text') }}" class="place-form">
     <input type="hidden" name="page" value="{{ page_index }}">
     <input type="hidden" name="x_pct" class="x-pct">
     <input type="hidden" name="y_pct" class="y-pct">
     <label for="text">Text</label>
     <input type="text" id="text" name="text" required>
-    <label for="width_pct">Box width (% of page)</label>
-    <input type="number" id="width_pct" name="width_pct" value="30" min="5" max="90">
-    <label for="font_size">Font size</label>
-    <input type="number" id="font_size" name="font_size" value="12" min="6" max="48">
+    <div class="field-row">
+      <div>
+        <label for="width_pct">Box width (% of page)</label>
+        <input type="number" id="width_pct" name="width_pct" value="30" min="5" max="90">
+      </div>
+      <div>
+        <label for="font_size">Font size</label>
+        <input type="number" id="font_size" name="font_size" value="12" min="6" max="48">
+      </div>
+      <div>
+        <label for="text_color">Colour</label>
+        <input type="color" id="text_color" name="color" value="#000000">
+      </div>
+    </div>
     <div class="toolbar"><button type="submit">Add text</button></div>
   </form>
 </div>
 
-<div class="card">
-  <h2>Add highlight</h2>
-  <form method="post" action="{{ url_for('annotate.add_highlight') }}" class="place-form">
+<div class="card tool-panel" data-panel="highlight" hidden>
+  <h2>Highlighter</h2>
+  <p class="note">Hold the mouse down and slide across the text, like a marker.
+    Each sweep is applied as you release it - there's no Apply step. Sweeps snap
+    to the words underneath, so the highlight follows the text.</p>
+  <label for="hl_color">Colour</label>
+  <div class="swatch-row" data-target="hl_color">
+    <button type="button" class="swatch active" style="--sw:#ffeb3b" data-color="#ffeb3b" title="Yellow"></button>
+    <button type="button" class="swatch" style="--sw:#8bff7a" data-color="#8bff7a" title="Green"></button>
+    <button type="button" class="swatch" style="--sw:#7ad7ff" data-color="#7ad7ff" title="Blue"></button>
+    <button type="button" class="swatch" style="--sw:#ff9ecb" data-color="#ff9ecb" title="Pink"></button>
+    <button type="button" class="swatch" style="--sw:#ffb347" data-color="#ffb347" title="Orange"></button>
+    <input type="color" id="hl_color" value="#ffeb3b">
+  </div>
+  <p class="note rect-readout" id="hl-status">Hold and slide across the text.</p>
+  <p class="note">Went too far? <kbd class="kbd-mod">Ctrl</kbd>+<kbd>Z</kbd> undoes the last sweep.</p>
+</div>
+
+<div class="card tool-panel" data-panel="pen" hidden>
+  <h2>Freehand pen</h2>
+  <p class="note">Draw directly on the page. Each stroke is added to the same
+    drawing - press Apply when you're done, or Clear to start again.</p>
+  <form method="post" action="{{ url_for('annotate.add_ink') }}" id="ink-form">
     <input type="hidden" name="page" value="{{ page_index }}">
-    <input type="hidden" name="x_pct" class="x-pct">
-    <input type="hidden" name="y_pct" class="y-pct">
-    <label for="hwidth_pct">Width (% of page)</label>
-    <input type="number" id="hwidth_pct" name="width_pct" value="20" min="1" max="100">
-    <label for="hheight_pct">Height (% of page)</label>
-    <input type="number" id="hheight_pct" name="height_pct" value="4" min="1" max="100">
-    <div class="toolbar"><button type="submit">Add highlight</button></div>
+    <input type="hidden" name="strokes" id="ink-strokes" value="[]">
+    <div class="field-row">
+      <div>
+        <label for="ink_color">Colour</label>
+        <input type="color" id="ink_color" name="color" value="#e02424">
+      </div>
+      <div>
+        <label for="ink_width">Stroke width</label>
+        <input type="number" id="ink_width" name="width" value="2" min="0.5" max="12" step="0.5">
+      </div>
+    </div>
+    <p class="note" id="ink-readout">No strokes yet.</p>
+    <div class="toolbar">
+      <button type="submit" id="ink-apply" disabled>Apply drawing</button>
+      <button type="button" class="secondary" id="ink-clear">Clear</button>
+    </div>
   </form>
 </div>
 
-<div class="card">
-  <h2>Add image stamp</h2>
+<div class="card tool-panel" data-panel="shape" hidden>
+  <h2>Shape</h2>
+  <p class="note">Drag on the page to draw. Lines and arrows run from where you
+    press to where you release.</p>
+  <form method="post" action="{{ url_for('annotate.add_shape') }}" class="rect-form">
+    <input type="hidden" name="page" value="{{ page_index }}">
+    <input type="hidden" name="x0_pct" class="r-x0">
+    <input type="hidden" name="y0_pct" class="r-y0">
+    <input type="hidden" name="x1_pct" class="r-x1">
+    <input type="hidden" name="y1_pct" class="r-y1">
+    <label for="shape_kind">Shape</label>
+    <select id="shape_kind" name="kind">
+      <option value="rect" selected>Rectangle</option>
+      <option value="ellipse">Ellipse</option>
+      <option value="line">Line</option>
+      <option value="arrow">Arrow</option>
+    </select>
+    <div class="field-row">
+      <div>
+        <label for="shape_color">Line colour</label>
+        <input type="color" id="shape_color" name="color" value="#e02424">
+      </div>
+      <div>
+        <label for="shape_width">Line width</label>
+        <input type="number" id="shape_width" name="width" value="2" min="0.5" max="12" step="0.5">
+      </div>
+      <div>
+        <label for="shape_fill">Fill colour</label>
+        <input type="color" id="shape_fill" name="fill_color" value="#ffe066">
+      </div>
+    </div>
+    <label><input type="checkbox" name="filled" id="shape_filled"> Fill the shape</label>
+    <p class="note rect-readout">Drag on the page to draw a shape.</p>
+    <div class="toolbar"><button type="submit" class="needs-rect" disabled>Add shape</button></div>
+  </form>
+</div>
+
+<div class="card tool-panel danger-zone" data-panel="whiteout" hidden>
+  <h2>Whiteout</h2>
+  <p class="note"><strong>This permanently removes content.</strong> The area isn't
+    covered by a white box - everything inside it is deleted from the page, so it
+    can't be recovered by selecting the area or inspecting the file.</p>
+  <form method="post" action="{{ url_for('annotate.whiteout') }}" class="rect-form"
+        data-slow="Removing content..."
+        onsubmit="return confirm('Permanently remove everything in the selected area?');">
+    <input type="hidden" name="page" value="{{ page_index }}">
+    <input type="hidden" name="x0_pct" class="r-x0">
+    <input type="hidden" name="y0_pct" class="r-y0">
+    <input type="hidden" name="x1_pct" class="r-x1">
+    <input type="hidden" name="y1_pct" class="r-y1">
+    <p class="note rect-readout">Drag on the page to choose an area.</p>
+    <div class="toolbar"><button type="submit" class="danger needs-rect" disabled>White out area</button></div>
+  </form>
+</div>
+
+<div class="card tool-panel" data-panel="edittext" hidden>
+  <h2>Edit existing text</h2>
+  <p class="note"><strong>Limitation:</strong> the original run is removed and your
+    replacement is redrawn in a built-in font sized to approximate it. On complex
+    layouts it will not be pixel-identical to the original. Review before sending on.</p>
+  <form method="post" action="{{ url_for('annotate.edit_text') }}" id="edit-text-form"
+        data-slow="Rewriting text...">
+    <input type="hidden" name="page" value="{{ page_index }}">
+    <input type="hidden" name="x_pct" id="et-x">
+    <input type="hidden" name="y_pct" id="et-y">
+    <input type="hidden" name="w_pct" id="et-w">
+    <input type="hidden" name="h_pct" id="et-h">
+    <p class="note" id="et-status">Click a highlighted run of text on the page to edit it.</p>
+    <label for="et-text">Replacement text</label>
+    <input type="text" id="et-text" name="new_text" disabled>
+    <label for="et-size">Font size (blank = match the original)</label>
+    <input type="number" id="et-size" name="font_size" min="4" max="72" step="0.5" disabled>
+    <div class="toolbar"><button type="submit" id="et-apply" disabled>Replace this text</button></div>
+  </form>
+</div>
+
+<div class="card tool-panel" data-panel="stamp" hidden>
+  <h2>Image stamp</h2>
+  <p class="note">Click the page to set the top-left corner, then choose an image.</p>
   <form method="post" action="{{ url_for('annotate.add_stamp') }}" enctype="multipart/form-data" class="place-form">
     <input type="hidden" name="page" value="{{ page_index }}">
     <input type="hidden" name="x_pct" class="x-pct">
     <input type="hidden" name="y_pct" class="y-pct">
-    <label for="image">Image</label>
-    <input type="file" id="image" name="image" accept="image/*" required>
+    <label class="dropzone" for="image">
+      <span class="dz-icon">&#8679;</span>
+      <span class="dz-main">Drop an image here</span>
+      <span class="dz-sub">or click to browse</span>
+      <span class="dz-file"></span>
+      <input type="file" id="image" name="image" accept="image/*" required>
+    </label>
     <label for="swidth_pct">Width (% of page)</label>
     <input type="number" id="swidth_pct" name="width_pct" value="25" min="1" max="100">
     <div class="toolbar"><button type="submit">Add stamp</button></div>
   </form>
 </div>
 
-<div class="card">
+<div class="card tool-panel" data-panel="signature" hidden>
   <h2>Draw &amp; place a signature</h2>
+  <p class="note">Sign in the box, click the page to choose where it goes, then place it.</p>
   <canvas id="sig-canvas" class="sig-pad" width="400" height="150"></canvas>
   <div class="toolbar">
     <button type="button" class="secondary" onclick="clearSig()">Clear signature</button>
@@ -82,10 +242,14 @@
     <div class="toolbar"><button type="submit">Place signature</button></div>
   </form>
 </div>
+{% endblock %}
 
-<div class="toolbar">
-  <a class="btn" href="{{ url_for('viewer.download') }}">Download current PDF</a>
-</div>
-
+{% block scripts %}
+<script>
+  window.ANNOTATE_PAGE = {{ page_index }};
+  window.SPANS_URL = "{{ url_for('annotate.text_spans', index=page_index) }}";
+  window.WORDS_URL = "{{ url_for('annotate.page_words', index=page_index) }}";
+  window.SWEEP_URL = "{{ url_for('annotate.highlight_sweep') }}";
+</script>
 <script src="{{ url_for('static', filename='js/annotate.js') }}"></script>
 {% endblock %}

@@ -3,26 +3,71 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
   <title>{% block title %}PDF Tool{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script>
+    // Opt into the pre-hidden reveal state only when motion will actually run.
+    // The timeout is the safety net for a blocked CDN - without it a failed
+    // GSAP load would leave every .reveal element invisible.
+    (function () {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      document.documentElement.classList.add("motion");
+      setTimeout(function () {
+        if (!window.gsap) document.documentElement.classList.remove("motion");
+      }, 2000);
+    })();
+  </script>
 </head>
 <body>
   {% if session.get('logged_in') %}
+  {% set ep = request.endpoint %}
   <nav class="topnav">
-    <a class="brand" href="{{ url_for('viewer.index') }}">PDF Tool</a>
-    <a href="{{ url_for('viewer.index') }}">Editor</a>
-    <a href="{{ url_for('merge_split.merge_page') }}">Merge</a>
-    <a href="{{ url_for('merge_split.split_page') }}">Split</a>
-    <a href="{{ url_for('convert.convert_page') }}">DPI / Enhance / OCR</a>
-    <a href="{{ url_for('annotate.annotate_page') }}">Annotate / Sign</a>
-    <a href="{{ url_for('forms.forms_page') }}">Forms</a>
-    <a href="{{ url_for('redact.redact_page') }}">Redact</a>
-    <a href="{{ url_for('security.security_page') }}">Encrypt</a>
-    <a href="{{ url_for('textedit.textedit_page') }}">Find &amp; Replace</a>
-    <a class="logout" href="{{ url_for('auth.logout') }}">Log out</a>
+    <a class="brand" href="{{ url_for('viewer.index') }}">
+      <span class="brand-mark">PDF</span> PDF Tool
+    </a>
+    <a href="{{ url_for('viewer.index') }}" class="{{ 'active' if ep == 'viewer.index' }}">Editor</a>
+    <a href="{{ url_for('merge_split.merge_page') }}" class="{{ 'active' if ep == 'merge_split.merge_page' }}">Merge</a>
+    <a href="{{ url_for('merge_split.split_page') }}" class="{{ 'active' if ep == 'merge_split.split_page' }}">Split</a>
+    <a href="{{ url_for('convert.convert_page') }}" class="{{ 'active' if ep == 'convert.convert_page' }}">DPI / Enhance / OCR</a>
+    <a href="{{ url_for('annotate.annotate_page') }}" class="{{ 'active' if ep == 'annotate.annotate_page' }}">Annotate / Edit</a>
+    <a href="{{ url_for('forms.forms_page') }}" class="{{ 'active' if ep == 'forms.forms_page' }}">Forms</a>
+    <a href="{{ url_for('redact.redact_page') }}" class="{{ 'active' if ep == 'redact.redact_page' }}">Redact</a>
+    <a href="{{ url_for('security.security_page') }}" class="{{ 'active' if ep == 'security.security_page' }}">Encrypt</a>
+    <a href="{{ url_for('textedit.textedit_page') }}" class="{{ 'active' if ep == 'textedit.textedit_page' }}">Find &amp; Replace</a>
+    <a href="{{ url_for('extract.extract_page') }}" class="{{ 'active' if ep == 'extract.extract_page' }}">Markdown</a>
+    <div class="nav-right">
+      {% if has_doc %}
+      <a class="btn nav-download" id="download-link"
+         href="{{ url_for('viewer.download') }}" title="Download the edited PDF (Ctrl+S)">
+        <span aria-hidden="true">&#8595;</span> Download PDF
+      </a>
+      {% endif %}
+      <a href="#" data-toggle-help title="Keyboard shortcuts (?)">Shortcuts</a>
+      <a href="{{ url_for('auth.logout') }}">Log out</a>
+    </div>
   </nav>
   {% endif %}
+
+  {% if has_doc %}
+  {# Undo/redo are server-side - the document history lives in memory on the
+     server, so the shortcuts post these rather than editing anything locally.
+     `next` returns the user to the page they were working on. #}
+  {% set here = request.full_path if request.query_string else request.path %}
+  <form method="post" action="{{ url_for('viewer.undo') }}" id="undo-form"
+        data-available="{{ 'true' if can_undo else 'false' }}" hidden>
+    <input type="hidden" name="next" value="{{ here }}">
+  </form>
+  <form method="post" action="{{ url_for('viewer.redo') }}" id="redo-form"
+        data-available="{{ 'true' if can_redo else 'false' }}" hidden>
+    <input type="hidden" name="next" value="{{ here }}">
+  </form>
+  {% endif %}
+
   <main>
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -35,5 +80,58 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
+
+  <div class="work-overlay" id="work-overlay" role="status" aria-live="polite">
+    <div class="work-box">
+      <div class="work-title">Working...</div>
+      <div class="work-sub">Large scans can take a minute. Don't close this tab.</div>
+      <div class="work-track"><div class="work-bar"></div></div>
+    </div>
+  </div>
+
+  <div class="shortcut-help" id="shortcut-help" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="shortcut-box">
+      <div class="shortcut-head">
+        <h2>Keyboard shortcuts</h2>
+        <button type="button" class="secondary" data-close-help>Close</button>
+      </div>
+      <div class="shortcut-cols">
+        <div>
+          <h3>Anywhere</h3>
+          <dl class="kb-list">
+            <dt><kbd class="kbd-mod">Ctrl</kbd> + <kbd>Z</kbd></dt><dd>Undo last change</dd>
+            <dt><kbd class="kbd-mod">Ctrl</kbd> + <kbd>Y</kbd></dt><dd>Redo</dd>
+            <dt><kbd class="kbd-mod">Ctrl</kbd> + <kbd>&#8679;</kbd> + <kbd>Z</kbd></dt><dd>Redo (alternative)</dd>
+            <dt><kbd class="kbd-mod">Ctrl</kbd> + <kbd>S</kbd></dt><dd>Download current PDF</dd>
+            <dt><kbd>?</kbd></dt><dd>Show this panel</dd>
+            <dt><kbd>Esc</kbd></dt><dd>Close this panel</dd>
+          </dl>
+        </div>
+        <div>
+          <h3>Annotate &amp; Edit page</h3>
+          <dl class="kb-list">
+            <dt><kbd>V</kbd></dt><dd>Select</dd>
+            <dt><kbd>T</kbd></dt><dd>Text note</dd>
+            <dt><kbd>H</kbd></dt><dd>Highlight</dd>
+            <dt><kbd>P</kbd></dt><dd>Pen</dd>
+            <dt><kbd>S</kbd></dt><dd>Shape</dd>
+            <dt><kbd>W</kbd></dt><dd>Whiteout</dd>
+            <dt><kbd>E</kbd></dt><dd>Edit text</dd>
+            <dt><kbd>I</kbd></dt><dd>Stamp</dd>
+            <dt><kbd>G</kbd></dt><dd>Signature</dd>
+          </dl>
+          <p class="note">On this page <kbd class="kbd-mod">Ctrl</kbd> + <kbd>Z</kbd> clears
+            unapplied pen strokes and selections first, then undoes the document.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+  <script src="{{ url_for('static', filename='js/motion.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/shortcuts.js') }}"></script>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

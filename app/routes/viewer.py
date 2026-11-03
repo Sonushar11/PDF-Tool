@@ -32,10 +32,13 @@ def index():
     if doc is None:
         return render_template("upload.html")
     page_count = pdf_pages.get_page_count(doc.data)
+    size_kb = len(doc.data) / 1024
     return render_template(
         "editor.html",
         filename=doc.filename,
         page_count=page_count,
+        size_label=f"{size_kb / 1024:.1f} MB" if size_kb >= 1024 else f"{size_kb:.0f} KB",
+        edit_count=len(doc.history),
         can_undo=bool(doc.history),
     )
 
@@ -151,6 +154,19 @@ def extract_pages():
     )
 
 
+def _safe_next() -> str:
+    """Where to return after undo/redo - the page the user was actually on.
+
+    Only same-site absolute paths are honoured; anything else (a full URL, a
+    protocol-relative '//evil.example') falls back to the editor so this can't
+    be used as an open redirect.
+    """
+    target = request.form.get("next", "")
+    if target.startswith("/") and not target.startswith("//"):
+        return target
+    return url_for("viewer.index")
+
+
 @viewer_bp.route("/undo", methods=["POST"])
 def undo():
     token, _ = _require_doc()
@@ -158,7 +174,17 @@ def undo():
         flash("Reverted last change.", "info")
     else:
         flash("Nothing to undo.", "error")
-    return redirect(url_for("viewer.index"))
+    return redirect(_safe_next())
+
+
+@viewer_bp.route("/redo", methods=["POST"])
+def redo():
+    token, _ = _require_doc()
+    if store.redo(token):
+        flash("Reapplied change.", "info")
+    else:
+        flash("Nothing to redo.", "error")
+    return redirect(_safe_next())
 
 
 @viewer_bp.route("/download")

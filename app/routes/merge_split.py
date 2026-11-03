@@ -5,6 +5,7 @@ import zipfile
 
 from flask import Blueprint, flash, redirect, render_template, request, send_file, url_for
 
+from app.doc_session import get_current_doc
 from app.pdf_core import pages as pdf_pages
 
 merge_split_bp = Blueprint("merge_split", __name__)
@@ -12,18 +13,28 @@ merge_split_bp = Blueprint("merge_split", __name__)
 
 @merge_split_bp.route("/merge", methods=["GET"])
 def merge_page():
-    return render_template("merge.html")
+    _token, doc = get_current_doc()
+    return render_template("merge.html", loaded=doc)
 
 
 @merge_split_bp.route("/merge", methods=["POST"])
 def merge_submit():
     files = request.files.getlist("files")
     files = [f for f in files if f and f.filename]
-    if len(files) < 2:
-        flash("Choose at least two PDF files to merge.", "error")
+
+    # The document already open in the editor counts as the first input, so
+    # "merge this with another file" doesn't mean re-uploading what's loaded.
+    parts = []
+    _token, doc = get_current_doc()
+    if doc is not None and request.form.get("include_loaded"):
+        parts.append(doc.data)
+    parts.extend(f.read() for f in files)
+
+    if len(parts) < 2:
+        flash("Pick at least two PDFs to merge.", "error")
         return redirect(url_for("merge_split.merge_page"))
     try:
-        merged = pdf_pages.merge_pdfs([f.read() for f in files])
+        merged = pdf_pages.merge_pdfs(parts)
     except Exception as exc:
         flash(f"Could not merge files: {exc}", "error")
         return redirect(url_for("merge_split.merge_page"))
@@ -37,7 +48,9 @@ def merge_submit():
 
 @merge_split_bp.route("/split", methods=["GET"])
 def split_page():
-    return render_template("split.html")
+    _token, doc = get_current_doc()
+    page_count = pdf_pages.get_page_count(doc.data) if doc else 0
+    return render_template("split.html", loaded=doc, page_count=page_count)
 
 
 def _parse_ranges(raw: str, page_count: int) -> list[tuple[int, int]]:
@@ -63,13 +76,24 @@ def _parse_ranges(raw: str, page_count: int) -> list[tuple[int, int]]:
 def split_submit():
     file = request.files.get("file")
     ranges_raw = request.form.get("ranges", "")
-    if not file or not file.filename:
-        flash("Choose a PDF file to split.", "error")
-        return redirect(url_for("merge_split.split_page"))
-    data = file.read()
+
+    # Split whatever is open unless a different file was actually uploaded.
+    if file and file.filename:
+        data = file.read()
+    else:
+        _token, doc = get_current_doc()
+        if doc is None:
+            flash("Load a PDF first, or choose a file to split.", "error")
+            return redirect(url_for("merge_split.split_page"))
+        data = doc.data
+    mode = request.form.get("mode", "ranges")
     try:
         page_count = pdf_pages.get_page_count(data)
-        ranges = _parse_ranges(ranges_raw, page_count)
+        if mode == "interval":
+            every = int(request.form.get("every", 0) or 0)
+            ranges = pdf_pages.interval_ranges(page_count, every)
+        else:
+            ranges = _parse_ranges(ranges_raw, page_count)
         parts = pdf_pages.split_pdf(data, ranges)
     except Exception as exc:
         flash(f"Could not split file: {exc}", "error")

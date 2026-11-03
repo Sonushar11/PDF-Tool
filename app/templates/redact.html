@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Redact - PDF Tool{% endblock %}
 {% block content %}
-<h1>{{ filename }}</h1>
-<p class="note"><a href="{{ url_for('viewer.index') }}">&larr; back to editor</a></p>
-<p class="note">Redaction here permanently removes the underlying content in the marked
-  area or matched text - it isn't just a black box drawn on top.</p>
+<div class="page-head reveal">
+  <a class="backlink" href="{{ url_for('viewer.index') }}">&larr; back to editor</a>
+  <h1>{{ filename }}</h1>
+  <p class="note">Redaction here permanently removes the underlying content in the marked
+    area or matched text - it isn't just a black box drawn on top.</p>
+</div>
 
-<div class="card">
+<div class="card danger-zone reveal">
+  <h2>Redact an area</h2>
   <label for="page-select">Page</label>
   <select id="page-select" onchange="location.href='{{ url_for('redact.redact_page') }}?page='+this.value">
     {% for i in range(page_count) %}
@@ -17,9 +20,10 @@
   <div id="preview-wrap" style="position:relative; display:inline-block;">
     <img id="preview-img" src="{{ url_for('viewer.preview', index=page_index) }}"
          style="max-width:100%; display:block; cursor:crosshair;">
-    <div id="sel-box" style="position:absolute; border:2px solid #dc2626; background:rgba(220,38,38,0.2); display:none;"></div>
+    <div id="sel-box" style="position:absolute; border:2px solid #ff5f5f; background:rgba(255,95,95,0.22); display:none;"></div>
   </div>
   <form method="post" action="{{ url_for('redact.redact_area') }}" id="area-form"
+        data-slow="Redacting area..."
         onsubmit="return confirm('Permanently redact the selected area?');">
     <input type="hidden" name="page" value="{{ page_index }}">
     <input type="hidden" name="box" id="box-data">
@@ -27,22 +31,21 @@
   </form>
 </div>
 
-<div class="card">
+<div class="card danger-zone reveal">
   <h2>Redact by text</h2>
   <p class="note">Finds and permanently redacts every occurrence of the exact text across
     the whole document (case-sensitive, no partial-word matching beyond a plain substring
     search).</p>
   <form method="post" action="{{ url_for('redact.redact_text') }}"
+        data-slow="Redacting matches..."
         onsubmit="return confirm('Permanently redact every occurrence of this text?');">
     <label for="search_text">Text to redact</label>
     <input type="text" id="search_text" name="search_text" required>
     <div class="toolbar"><button type="submit" class="danger">Redact all occurrences</button></div>
   </form>
 </div>
+{% endblock %}
 
-<div class="toolbar">
-  <a class="btn" href="{{ url_for('viewer.download') }}">Download current PDF</a>
-</div>
-
+{% block scripts %}
 <script src="{{ url_for('static', filename='js/redact.js') }}"></script>
 {% endblock %}

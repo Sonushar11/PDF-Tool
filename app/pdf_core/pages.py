@@ -80,3 +80,20 @@ def split_pdf(file_bytes: bytes, ranges: list[tuple[int, int]]) -> list[bytes]:
             finally:
                 part.close()
     return outputs
+
+
+def interval_ranges(page_count: int, every: int) -> list[tuple[int, int]]:
+    """Ranges that cut a document into fixed-size chunks.
+
+    `every=2` over 20 pages gives 10 pairs. A trailing chunk shorter than
+    `every` is kept rather than dropped, so 21 pages give 10 pairs plus a
+    single-page file.
+    """
+    if every < 1:
+        raise ValueError("Split interval must be at least 1 page.")
+    if page_count < 1:
+        raise ValueError("That PDF has no pages.")
+    return [
+        (start, min(start + every, page_count) - 1)
+        for start in range(0, page_count, every)
+    ]
