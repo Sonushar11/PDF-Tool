@@ -1,0 +1,75 @@
+name: CI
+
+# Runs the test suite on every push and pull request to main.
+# The app shells out to tesseract, ghostscript and qpdf via ocrmypdf and
+# pikepdf, so the runner needs the same system packages the Dockerfile
+# installs -- pip alone is not enough.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr \
+            ghostscript \
+            qpdf \
+            unpaper \
+            libgl1
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run tests
+        env:
+          APP_PASSWORD: ci-test-password
+          FLASK_SECRET_KEY: ci-test-secret
+        run: pytest tests/ -v --tb=short
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      # Non-blocking for now: reports issues without failing the build, so
+      # CI going green depends on the tests rather than on style debt in
+      # code that predates the linter. Drop the "|| true" once it is clean.
+      - name: Check formatting and lint
+        run: ruff check . --output-format=github || true
