@@ -49,11 +49,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
+      # "python -m pytest" rather than bare "pytest": the -m form puts the
+      # repository root on sys.path, so "from app.pdf_core import ..."
+      # resolves. Bare pytest does not, and every test file fails to import.
       - name: Run tests
         env:
           APP_PASSWORD: ci-test-password
           FLASK_SECRET_KEY: ci-test-secret
-        run: pytest tests/ -v --tb=short
+        run: python -m pytest tests/ -v --tb=short
 
   lint:
     name: Lint
