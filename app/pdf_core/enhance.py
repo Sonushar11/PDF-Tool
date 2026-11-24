@@ -45,10 +45,12 @@ def _deskew(img: np.ndarray) -> np.ndarray:
 
 def _clahe_contrast(img: np.ndarray) -> np.ndarray:
     lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-    l, a, b = cv2.split(lab)
+    lightness, a_chan, b_chan = cv2.split(lab)
     clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
-    l = clahe.apply(l)
-    return cv2.cvtColor(cv2.merge((l, a, b)), cv2.COLOR_LAB2BGR)
+    lightness = clahe.apply(lightness)
+    return cv2.cvtColor(
+        cv2.merge((lightness, a_chan, b_chan)), cv2.COLOR_LAB2BGR
+    )
 
 
 def _sharpen(img: np.ndarray) -> np.ndarray:
@@ -83,7 +85,7 @@ def enhance_pixmap_png(
     ok, buf = cv2.imencode(".png", img)
     if not ok:
         raise RuntimeError("Failed to encode enhanced page image.")
-    return buf.tobytes()
+    return bytes(buf.tobytes())
 
 
 def enhance_pdf(

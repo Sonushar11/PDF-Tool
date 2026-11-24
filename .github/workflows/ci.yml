@@ -1,9 +1,11 @@
 name: CI
 
-# Runs the test suite on every push and pull request to main.
+# Three gates, all blocking: tests, lint and type checking.
+#
 # The app shells out to tesseract, ghostscript and qpdf via ocrmypdf and
-# pikepdf, so the runner needs the same system packages the Dockerfile
-# installs -- pip alone is not enough.
+# pikepdf, so the test runner needs the same system packages the Dockerfile
+# installs -- pip alone is not enough. Lint and type checking do not execute
+# the code, so they skip apt and install from pip only.
 
 on:
   push:
@@ -59,7 +61,7 @@ jobs:
         run: python -m pytest tests/ -v --tb=short
 
   lint:
-    name: Lint
+    name: Lint (ruff)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,12 +69,43 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
 
+      # Pinned in requirements-dev.txt rather than installed loose. ruff's
+      # default rule set changes between releases, so an unpinned install
+      # turns a green build red over code nobody touched. The rules
+      # themselves are pinned in pyproject.toml for the same reason.
       - name: Install ruff
-        run: pip install ruff
+        run: pip install -r requirements-dev.txt
 
-      # Non-blocking for now: reports issues without failing the build, so
-      # CI going green depends on the tests rather than on style debt in
-      # code that predates the linter. Drop the "|| true" once it is clean.
-      - name: Check formatting and lint
-        run: ruff check . --output-format=github || true
+      # Blocking. This step previously ended in "|| true", so it reported
+      # findings and never failed, which meant it gated nothing.
+      - name: Lint
+        run: ruff check . --output-format=github
+
+  typecheck:
+    name: Type check (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      # Real dependencies, not stubbed out, so mypy checks against Flask,
+      # numpy and Pillow's actual signatures. Only PyMuPDF is excepted, in
+      # pyproject.toml, because it ships no py.typed marker. mypy does not
+      # execute the code, so the apt packages are not needed here.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Type check
+        run: mypy

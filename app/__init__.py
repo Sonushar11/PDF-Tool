@@ -10,15 +10,15 @@ def create_app():
     app.config["APP_PASSWORD"] = os.environ.get("APP_PASSWORD", "change-me")
 
     from app.auth import auth_bp, require_login
-    from app.routes.viewer import viewer_bp
-    from app.routes.merge_split import merge_split_bp
-    from app.routes.convert import convert_bp
     from app.routes.annotate import annotate_bp
+    from app.routes.convert import convert_bp
+    from app.routes.extract import extract_bp
     from app.routes.forms import forms_bp
+    from app.routes.merge_split import merge_split_bp
     from app.routes.redact import redact_bp
     from app.routes.security import security_bp
     from app.routes.textedit import textedit_bp
-    from app.routes.extract import extract_bp
+    from app.routes.viewer import viewer_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(viewer_bp)

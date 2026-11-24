@@ -11,7 +11,7 @@ textedit_bp = Blueprint("textedit", __name__, url_prefix="/textedit")
 
 @textedit_bp.route("", methods=["GET"])
 def textedit_page():
-    token, doc = require_current_doc()
+    _token, doc = require_current_doc()
     return render_template("textedit.html", filename=doc.filename)
 
 

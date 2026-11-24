@@ -11,9 +11,13 @@ on complex layouts. Callers should treat this as a labelled, limited feature.
 """
 from __future__ import annotations
 
+import logging
+
 import fitz  # PyMuPDF
 
 from app.pdf_core.pages import open_doc, save_doc_bytes
+
+log = logging.getLogger(__name__)
 
 
 def list_spans(file_bytes: bytes, page_index: int) -> list[dict]:
@@ -98,10 +102,12 @@ def _resolve_font(doc, page, span) -> tuple[str, bytes | None]:
     # 1. The font is embedded - reuse the real thing.
     try:
         entries = page.get_fonts(full=True)
+    # PyMuPDF raises undocumented exception types from its parsers.
     except Exception:
+        log.debug("Could not list page fonts; falling back.", exc_info=True)
         entries = []
 
-    candidates = []
+    candidates: list[int] = []
     for entry in entries:
         xref, _ext, _ftype, basefont, refname, *_ = entry
         if _squash(basefont) == _squash(span_font) or _squash(refname) == _squash(span_font):
@@ -116,7 +122,9 @@ def _resolve_font(doc, page, span) -> tuple[str, bytes | None]:
     for xref in candidates:
         try:
             _name, ext, _ftype, buffer = doc.extract_font(xref)
+        # PyMuPDF raises undocumented exception types from its parsers.
         except Exception:
+            log.debug("Font xref %s could not be extracted.", xref, exc_info=True)
             continue
         if buffer and ext not in ("n/a", "", None):
             return f"EMB{xref}", buffer
@@ -202,12 +210,16 @@ def replace_span(
             if fontbuffer:
                 try:
                     page.insert_font(fontname=fontname, fontbuffer=fontbuffer)
+                # PyMuPDF raises undocumented exception types from its parsers.
                 except Exception:
+                    log.debug("Embedded font rejected; using a base-14 face.", exc_info=True)
                     fontname = _base14_from_flags(span.get("flags", 0) if span else 0)
             try:
                 page.insert_text(baseline, new_text, fontsize=size,
                                  fontname=fontname, color=color)
+            # PyMuPDF raises undocumented exception types from its parsers.
             except Exception:
+                log.debug("insert_text failed; retrying with Helvetica.", exc_info=True)
                 # Never lose the edit over a font problem.
                 page.insert_text(baseline, new_text, fontsize=size,
                                  fontname="helv", color=color)

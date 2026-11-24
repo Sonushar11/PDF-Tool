@@ -34,7 +34,7 @@ def _parse_color(raw: str | None, default: tuple[float, float, float]):
 
 @annotate_bp.route("", methods=["GET"])
 def annotate_page():
-    token, doc = require_current_doc()
+    _token, doc = require_current_doc()
     page_count = pdf_pages.get_page_count(doc.data)
     page_index = int(request.args.get("page", 0))
     page_index = max(0, min(page_index, page_count - 1))

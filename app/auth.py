@@ -1,4 +1,12 @@
-from flask import Blueprint, current_app, redirect, render_template, request, session, url_for
+from flask import (
+    Blueprint,
+    current_app,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 
 auth_bp = Blueprint("auth", __name__)
 

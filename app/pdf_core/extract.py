@@ -13,6 +13,7 @@ Scanned pages have no text layer and produce nothing - run OCR first.
 """
 from __future__ import annotations
 
+import logging
 import re
 from collections import Counter
 
@@ -20,13 +21,18 @@ import fitz  # PyMuPDF
 
 from app.pdf_core.pages import open_doc
 
-_BULLET = re.compile(r"^\s*[•●▪·\-\*–]\s+")
+log = logging.getLogger(__name__)
+
+_BULLET = re.compile(r"^\s*[•●▪·\-\*–]\s+")  # noqa: RUF001 - PDFs use an en dash as a bullet, not a hyphen
 _NUMBERED = re.compile(r"^\s*(\d+)[.)]\s+")
 
 
 def _clean(text: str) -> str:
-    # PDFs often use non-breaking spaces between words; normalise for Markdown.
-    return text.replace("\xa0", " ").replace("​", "").strip()
+    # PDFs often carry non-breaking and zero-width spaces between words;
+    # normalise both for Markdown. Written as escapes, not literal
+    # characters, because a zero-width space is invisible in a source file
+    # and reads as a no-op to anyone maintaining this.
+    return text.replace("\xa0", " ").replace("\u200b", "").strip()
 
 
 def _escape(text: str) -> str:
@@ -59,7 +65,7 @@ def _style_runs(spans: list[dict]) -> str:
 
 def _body_size(doc, page_indices) -> float:
     """The most common span size - treated as normal body text."""
-    counter = Counter()
+    counter: Counter[float] = Counter()
     for index in page_indices:
         for block in doc[index].get_text("dict").get("blocks", []):
             for line in block.get("lines", []):
@@ -68,7 +74,7 @@ def _body_size(doc, page_indices) -> float:
                         counter[round(span.get("size", 0), 1)] += len(span["text"])
     if not counter:
         return 0.0
-    return counter.most_common(1)[0][0]
+    return float(counter.most_common(1)[0][0])
 
 
 def _heading_level(size: float, body: float) -> int:
@@ -88,7 +94,9 @@ def _heading_level(size: float, body: float) -> int:
 def _table_markdown(table) -> str:
     try:
         rows = table.extract()
+    # PyMuPDF raises undocumented exception types from its parsers.
     except Exception:
+        log.debug("Table extraction failed; emitting nothing.", exc_info=True)
         return ""
     rows = [[_clean(str(c)) if c is not None else "" for c in row] for row in rows]
     rows = [r for r in rows if any(r)]
@@ -139,8 +147,11 @@ def to_markdown(
                         if markdown:
                             table_rects.append(fitz.Rect(table.bbox))
                             table_blocks.append((fitz.Rect(table.bbox).y0, markdown))
+                # PyMuPDF raises undocumented exception types from its parsers.
                 except Exception:
-                    pass   # table detection is best-effort, never fatal
+                    # Best-effort and never fatal, but a bare pass hid every
+                    # failure, so this is recorded rather than swallowed.
+                    log.debug("Table detection failed on a page.", exc_info=True)
 
             text_blocks = []
             for block in page.get_text("dict").get("blocks", []):
@@ -152,7 +163,8 @@ def to_markdown(
                        for tr in table_rects):
                     continue
 
-                lines, sizes = [], []
+                lines: list[str] = []
+                sizes: list[float] = []
                 for line in block.get("lines", []):
                     rendered = _style_runs(line.get("spans", []))
                     if rendered:

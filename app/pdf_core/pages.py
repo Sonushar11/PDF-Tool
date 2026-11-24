@@ -13,12 +13,12 @@ def open_doc(file_bytes: bytes) -> fitz.Document:
 
 
 def save_doc_bytes(doc: fitz.Document) -> bytes:
-    return doc.tobytes(garbage=4, deflate=True)
+    return bytes(doc.tobytes(garbage=4, deflate=True))
 
 
 def get_page_count(file_bytes: bytes) -> int:
     with open_doc(file_bytes) as doc:
-        return doc.page_count
+        return int(doc.page_count)
 
 
 def delete_pages(file_bytes: bytes, page_indices: list[int]) -> bytes:

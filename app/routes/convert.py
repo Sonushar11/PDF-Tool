@@ -15,7 +15,7 @@ convert_bp = Blueprint("convert", __name__, url_prefix="/convert")
 
 @convert_bp.route("", methods=["GET"])
 def convert_page():
-    token, doc = require_current_doc()
+    _token, doc = require_current_doc()
     page_count = pdf_pages.get_page_count(doc.data)
     return render_template(
         "convert.html",

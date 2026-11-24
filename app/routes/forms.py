@@ -12,7 +12,7 @@ forms_bp = Blueprint("forms", __name__, url_prefix="/forms")
 
 @forms_bp.route("", methods=["GET"])
 def forms_page():
-    token, doc = require_current_doc()
+    _token, doc = require_current_doc()
     fields = pdf_formsio.list_fields(doc.data)
     return render_template("forms.html", filename=doc.filename, fields=fields)
 
