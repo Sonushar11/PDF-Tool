@@ -4,7 +4,6 @@ import pytest
 from app import store
 from app.pdf_core import annotate, extract, pages, textedit
 
-
 # --- interval splitting -----------------------------------------------------
 
 def test_interval_ranges_even_division():

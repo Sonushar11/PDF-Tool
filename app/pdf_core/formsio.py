@@ -11,8 +11,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import fitz  # PyMuPDF
-
 from app.pdf_core.pages import open_doc, save_doc_bytes
 
 

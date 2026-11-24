@@ -2,7 +2,15 @@ from __future__ import annotations
 
 import io
 
-from flask import Blueprint, flash, redirect, render_template, request, send_file, url_for
+from flask import (
+    Blueprint,
+    flash,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    url_for,
+)
 
 from app import store
 from app.doc_session import get_current_doc, set_current_doc
@@ -13,13 +21,13 @@ security_bp = Blueprint("security", __name__, url_prefix="/security")
 
 @security_bp.route("", methods=["GET"])
 def security_page():
-    token, doc = get_current_doc()
+    _token, doc = get_current_doc()
     return render_template("security.html", filename=doc.filename if doc else None)
 
 
 @security_bp.route("/encrypt", methods=["POST"])
 def encrypt():
-    token, doc = get_current_doc()
+    _token, doc = get_current_doc()
     if doc is None:
         flash("Load a PDF in the Editor tab first.", "error")
         return redirect(url_for("security.security_page"))

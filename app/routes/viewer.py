@@ -2,11 +2,25 @@ from __future__ import annotations
 
 import io
 
-from flask import Blueprint, abort, flash, redirect, request, send_file, session, url_for
-from flask import render_template
+from flask import (
+    Blueprint,
+    abort,
+    flash,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    session,
+    url_for,
+)
 
 from app import store
-from app.doc_session import SESSION_KEY, get_current_doc, require_current_doc, set_current_doc
+from app.doc_session import (
+    SESSION_KEY,
+    get_current_doc,
+    require_current_doc,
+    set_current_doc,
+)
 from app.pdf_core import pages as pdf_pages
 from app.pdf_core import render as pdf_render
 
@@ -28,7 +42,7 @@ def _parse_indices(raw: str) -> list[int]:
 
 @viewer_bp.route("/", methods=["GET"])
 def index():
-    token, doc = _current_doc()
+    _token, doc = _current_doc()
     if doc is None:
         return render_template("upload.html")
     page_count = pdf_pages.get_page_count(doc.data)
@@ -161,10 +175,10 @@ def _safe_next() -> str:
     protocol-relative '//evil.example') falls back to the editor so this can't
     be used as an open redirect.
     """
-    target = request.form.get("next", "")
+    target = str(request.form.get("next", ""))
     if target.startswith("/") and not target.startswith("//"):
         return target
-    return url_for("viewer.index")
+    return str(url_for("viewer.index"))
 
 
 @viewer_bp.route("/undo", methods=["POST"])

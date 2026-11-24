@@ -1,0 +1,55 @@
+# Lint and type-check configuration.
+#
+# The rule set is pinned explicitly rather than left to ruff's defaults.
+# CI installs ruff from PyPI, and ruff's default selection changes between
+# releases, so an unpinned set means a green build today and a red one next
+# month over code nobody touched.
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # import sorting
+    "B",    # bugbear: likely bugs
+    "BLE",  # blind except
+    "S",    # bandit security rules
+    "UP",   # pyupgrade
+    "RUF",  # ruff-specific
+]
+ignore = [
+    # The existing code runs past 88 columns in places. Reflowing it all
+    # would bury the real findings under a wall of formatting churn.
+    "E501",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# HTTP handlers catch Exception on purpose: a stack trace must never reach
+# the browser, and each of these flashes a message and redirects. The rule
+# stays enforced in app/pdf_core, where swallowing an exception hides a bug
+# rather than handling one, and the six deliberate cases there carry an
+# inline noqa with a reason. That way the rule still catches the seventh.
+"app/routes/*.py" = ["BLE001"]
+# Tests assert by definition and compare against literal fixtures.
+"tests/*.py" = ["S101", "PLR2004"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["app", "run.py"]
+check_untyped_defs = true
+warn_return_any = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+
+# PyMuPDF ships no py.typed marker, so mypy cannot see fitz's signatures.
+# Scoped to that one library on purpose: a blanket ignore_missing_imports
+# would silence Flask, numpy and Pillow as well, and a type checker that
+# checks nothing is indistinguishable from no type checker at all.
+[[tool.mypy.overrides]]
+module = ["fitz", "fitz.*"]
+ignore_missing_imports = true

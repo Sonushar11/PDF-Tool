@@ -18,7 +18,7 @@ def render_page_png(file_bytes: bytes, page_index: int, dpi: int = 150) -> bytes
     with open_doc(file_bytes) as doc:
         page = doc[page_index]
         pix = _pixmap_for_dpi(page, dpi)
-        return pix.tobytes("png")
+        return bytes(pix.tobytes("png"))
 
 
 def render_thumbnail_png(file_bytes: bytes, page_index: int, max_dim: int = 220) -> bytes:
@@ -28,7 +28,7 @@ def render_thumbnail_png(file_bytes: bytes, page_index: int, max_dim: int = 220)
         longest = max(rect.width, rect.height) or 1
         zoom = max_dim / longest
         pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
-        return pix.tobytes("png")
+        return bytes(pix.tobytes("png"))
 
 
 def rasterize_pdf(file_bytes: bytes, dpi: int) -> bytes:

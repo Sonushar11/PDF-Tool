@@ -3,7 +3,6 @@ import pytest
 
 from app.pdf_core import annotate, draw, textedit
 
-
 # PyMuPDF annotations only weakly reference their page, so the page has to be
 # held in a local for as long as the annotation is read - and plain values must
 # be extracted before the document closes.

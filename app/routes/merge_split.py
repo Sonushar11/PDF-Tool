@@ -3,7 +3,15 @@ from __future__ import annotations
 import io
 import zipfile
 
-from flask import Blueprint, flash, redirect, render_template, request, send_file, url_for
+from flask import (
+    Blueprint,
+    flash,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    url_for,
+)
 
 from app.doc_session import get_current_doc
 from app.pdf_core import pages as pdf_pages
